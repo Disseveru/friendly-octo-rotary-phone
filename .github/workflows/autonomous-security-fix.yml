@@ -52,8 +52,7 @@ jobs:
               data = json.loads(content)
           except json.JSONDecodeError:
               print("Failed to parse npm audit JSON.")
-              sys.exit(0)
-          vulns = data.get('vulnerabilities', {})
+              sys.exit(0)          vulns = data.get('vulnerabilities', {})
           fixable = [n for n, v in vulns.items() if v.get('fixAvailable')]
           print(f'Total vulnerabilities : {len(vulns)}')
           print(f'Fixable               : {len(fixable)}')
@@ -102,8 +101,7 @@ jobs:
               data = json.loads(content)
           except json.JSONDecodeError:
               print("Failed to parse npm audit JSON.")
-              sys.exit(0)
-          vulns = data.get('vulnerabilities', {})
+              sys.exit(0)          vulns = data.get('vulnerabilities', {})
           print(f'Total vulnerabilities: {len(vulns)}')
           for name, v in vulns.items():
               print(f'  [{v["severity"]}] {name} - fixAvailable: {v["fixAvailable"]}')
@@ -145,8 +143,7 @@ jobs:
                 print('Failed to parse npm audit JSON.')
                 sys.exit(0)
             [print(f'[{v[\"severity\"]}] {n}: fixAvailable={v[\"fixAvailable\"]}') for n,v in d.get('vulnerabilities',{}).items()]
-            "` to review remaining issues.
-            2. Run `npm run build` to verify the updated dependency does not break the build. If the build fails, revert the breaking change and leave a comment explaining why.
+            "` to review remaining issues.            2. Run `npm run build` to verify the updated dependency does not break the build. If the build fails, revert the breaking change and leave a comment explaining why.
             3. If the update type is "version-update:semver-patch" or "version-update:semver-minor", the update is considered safe. Run `npm audit fix` to pick up any additional transitive fixes.
             4. Commit any changes you make with message: `fix: address residual vulnerabilities after Dependabot update`.
             5. If everything is fine, output exactly: `APPROVE_PR=true`. Otherwise output `APPROVE_PR=false` and a brief explanation.
@@ -218,8 +215,7 @@ jobs:
                 d = json.loads(content)
             except json.JSONDecodeError:
                 print('Failed to parse npm audit JSON.')
-                sys.exit(0)
-            vulns = d.get('vulnerabilities', {})
+                sys.exit(0)            vulns = d.get('vulnerabilities', {})
             print(f'Total vulnerabilities: {len(vulns)}')
             for name, v in vulns.items():
                 print(f'  [{v[\"severity\"]}] {name} - fixAvailable: {v[\"fixAvailable\"]}')

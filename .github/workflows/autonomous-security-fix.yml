@@ -1,9 +1,10 @@
 name: Autonomous Security Fix (Claude Sonnet 4.6)
 
 # Triggers:
-#  1. Dependabot PRs — review, fix, and auto-approve safe updates.
-#  2. Weekly schedule — proactively scan and fix audit vulnerabilities.
-#  3. Manual dispatch — run on-demand at any time.
+#  1. All PRs — run a non-blocking npm audit check on every pull request.
+#  2. Dependabot PRs — review, fix, and auto-approve safe updates.
+#  3. Weekly schedule — proactively scan and fix audit vulnerabilities.
+#  4. Manual dispatch — run on-demand at any time.
 on:
   pull_request:
     types: [opened, reopened, synchronize]
@@ -17,6 +18,46 @@ permissions:
   issues: write
 
 jobs:
+  # ── Job 0: Security audit on every PR ─────────────────────────────────────
+  security-audit:
+    name: Security Audit (npm audit)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: |
+          echo "=== npm audit report ==="
+          npm audit 2>&1 || true
+          echo ""
+          echo "=== Structured summary ==="
+          npm audit --json 2>/dev/null | python3 - <<'EOF'
+          import json, sys
+          data = json.load(sys.stdin)
+          vulns = data.get('vulnerabilities', {})
+          fixable = [n for n, v in vulns.items() if v.get('fixAvailable')]
+          print(f'Total vulnerabilities : {len(vulns)}')
+          print(f'Fixable               : {len(fixable)}')
+          print(f'Unfixable             : {len(vulns) - len(fixable)}')
+          if vulns:
+              print()
+              print('Details:')
+              for name, v in vulns.items():
+                  tag = '✓ fix available' if v.get('fixAvailable') else '✗ no fix yet'
+                  print(f'  [{v["severity"]:8s}] {name} — {tag}')
+          EOF
+
   # ── Job 1: Dependabot PR handling ──────────────────────────────────────────
   dependabot-fix:
     name: Review & Fix Dependabot PR

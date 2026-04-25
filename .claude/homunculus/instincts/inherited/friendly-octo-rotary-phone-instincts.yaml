@@ -1,0 +1,277 @@
+# Instincts generated from https://github.com/Disseveru/friendly-octo-rotary-phone
+# Generated: 2026-04-25T12:04:21.053Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: friendly-octo-rotary-phone-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Commit Length
+
+## Action
+
+Keep commit messages concise (~39 characters)
+
+## Evidence
+
+- Average commit message length: 39 chars
+- Based on 2 commits
+
+---
+id: friendly-octo-rotary-phone-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: friendly-octo-rotary-phone-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Export Style
+
+## Action
+
+Prefer default exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: default
+
+---
+id: friendly-octo-rotary-phone-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: friendly-octo-rotary-phone-instinct-file-naming
+trigger: "When creating a new file"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct File Naming
+
+## Action
+
+Name the file using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.files
+
+---
+id: friendly-octo-rotary-phone-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Function Naming
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.functions
+
+---
+id: friendly-octo-rotary-phone-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Class Naming
+
+## Action
+
+Name the class using PascalCase
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: friendly-octo-rotary-phone-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Constant Naming
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: friendly-octo-rotary-phone-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Import Style
+
+## Action
+
+Use absolute import paths
+
+## Evidence
+
+- Pattern in importStyle
+
+---
+id: friendly-octo-rotary-phone-instinct-export-style
+trigger: "When exporting modules or components"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Export Style
+
+## Action
+
+Use default exports
+
+## Evidence
+
+- Pattern in exportStyle
+
+---
+id: friendly-octo-rotary-phone-instinct-commit-format
+trigger: "When writing a commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Commit Format
+
+## Action
+
+Write a short, freeform message without a prefix, averaging around 39 characters
+
+## Evidence
+
+- Pattern in commits.examples
+- Pattern in commits.averageLength
+
+---
+id: friendly-octo-rotary-phone-instinct-try-catch-error-handling
+trigger: "When handling errors in code"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Try Catch Error Handling
+
+## Action
+
+Use try-catch blocks for error handling
+
+## Evidence
+
+- Pattern in errorHandling.style
+
+---
+id: friendly-octo-rotary-phone-instinct-no-custom-error-classes
+trigger: "When considering custom error classes"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct No Custom Error Classes
+
+## Action
+
+Avoid defining custom error classes
+
+## Evidence
+
+- Pattern in errorHandling.customErrorClasses
+
+---
+id: friendly-octo-rotary-phone-instinct-test-location
+trigger: "When creating new tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: Disseveru/friendly-octo-rotary-phone
+---
+
+# Friendly Octo Rotary Phone Instinct Test Location
+
+## Action
+
+Place tests in a separate folder from source code
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+

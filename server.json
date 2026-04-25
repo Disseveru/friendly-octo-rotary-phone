@@ -1,0 +1,66 @@
+{
+  "name": "FlashVault MCP",
+  "tagline": "The VIP x402 Flash Loan Profit Printer — agents pay you USDC to detect, simulate, generate calldata, and execute risk-free arbitrage.",
+  "description": "FlashVault MCP is an x402-monetized Model Context Protocol server that gives AI agents real-time DeFi market intelligence and flash loan tooling on Base and Solana. Every tool call costs USDC, paid instantly on-chain to the server owner. No subscriptions, no API keys for agents — just pay-per-use USDC micropayments.",
+  "version": "1.0.0",
+  "url": "https://your-project.vercel.app/api/mcp",
+  "transport": ["streamable-http"],
+  "payment": {
+    "protocol": "x402",
+    "network": "base",
+    "asset": "USDC",
+    "facilitator": "https://x402.org/facilitator"
+  },
+  "tools": [
+    {
+      "name": "get_market_data",
+      "description": "Real-time token prices, 24h change, and market cap via CoinGecko.",
+      "price_usdc": 0.01,
+      "tier": "basic"
+    },
+    {
+      "name": "scan_yield_opportunities",
+      "description": "Top DeFi yield pools by APY sourced from DeFiLlama.",
+      "price_usdc": 0.03,
+      "tier": "basic"
+    },
+    {
+      "name": "enrich_web_data",
+      "description": "Fetches and parses any public URL into clean text or JSON.",
+      "price_usdc": 0.05,
+      "tier": "basic"
+    },
+    {
+      "name": "detect_flash_arb_opportunities",
+      "description": "Scans Base + Solana DEXes for live arbitrage opportunities with net-profit estimates.",
+      "price_usdc": 0.10,
+      "tier": "premium"
+    },
+    {
+      "name": "simulate_flash_trade",
+      "description": "Dry-runs flash trade calldata on live chain state via eth_call.",
+      "price_usdc": 0.15,
+      "tier": "premium"
+    },
+    {
+      "name": "generate_flash_loan_calldata",
+      "description": "Encodes ready-to-sign Aave V3 flash loan calldata with arbitrage logic.",
+      "price_usdc": 0.25,
+      "tier": "premium"
+    },
+    {
+      "name": "execute_flash_loan_bundle",
+      "description": "Packages flash loan into a ready-to-submit EVM bundle with profit-share routing.",
+      "price_usdc": 0.50,
+      "tier": "premium"
+    }
+  ],
+  "categories": ["defi", "arbitrage", "flash-loans", "market-data", "blockchain"],
+  "chains": ["base", "solana", "ethereum"],
+  "author": {
+    "name": "FlashVault",
+    "url": "https://your-project.vercel.app"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/Disseveru/friendly-octo-rotary-phone"
+}

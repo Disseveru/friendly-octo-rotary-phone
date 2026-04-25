@@ -313,14 +313,25 @@ async function simulateFlashTrade(params: {
 
     const gasCostWei = gasEstimate * gasPrice;
     const gasCostEth = formatUnits(gasCostWei, 18);
-    const ethPrice = 3_000; // Conservative ETH price estimate
+
+    // Fetch live ETH price for accurate USD gas estimate; fall back to a safe default
+    let ethPriceUsd = 3_000;
+    try {
+      const prices = (await fetchMarketData(["ethereum"], ["usd"])) as Record<
+        string,
+        { usd: number }
+      >;
+      if (prices.ethereum?.usd) ethPriceUsd = prices.ethereum.usd;
+    } catch {
+      // Non-fatal — continue with fallback price
+    }
     return {
       success: true,
       returnData: callResult.data ?? "0x",
       gasEstimate: gasEstimate.toString(),
       gasPriceWei: gasPrice.toString(),
       estimatedGasCostETH: gasCostEth,
-      estimatedGasCostUSD: (parseFloat(gasCostEth) * ethPrice).toFixed(4),
+      estimatedGasCostUSD: (parseFloat(gasCostEth) * ethPriceUsd).toFixed(4),
       network: NETWORK,
       simulatedAt: new Date().toISOString(),
     };

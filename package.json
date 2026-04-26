@@ -10,10 +10,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "^15.3.1",
+    "next": "^16.2.4",
     "viem": "^2.48.4",
     "x402-mcp": "^0.1.1",
-    "zod": "^3.23.8"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -1,7 +1,7 @@
 {
-  "name": "flashvault-mcp",
+  "name": "claimguard-mcp",
   "version": "1.0.0",
-  "description": "FlashVault MCP — x402-powered Flash Loan Profit Printer for autonomous AI agents",
+  "description": "ClaimGuard MCP — x402-powered AI claim verification & deep research for autonomous AI agents",
   "private": true,
   "scripts": {
     "dev": "next dev",

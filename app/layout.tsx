@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "FlashVault MCP",
+  title: "ClaimGuard MCP",
   description:
-    "x402-powered Flash Loan Profit Printer — AI agents pay USDC to detect, simulate, and execute risk-free arbitrage.",
+    "x402-powered AI claim verification & deep research — agents pay USDC to verify claims, fact-check articles, score confidence, and conduct deep research.",
 };
 
 export default function RootLayout({

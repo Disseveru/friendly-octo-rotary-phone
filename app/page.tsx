@@ -14,12 +14,12 @@ export default function Home() {
         lineHeight: 1.7,
       }}
     >
-      <h1>⚡ FlashVault MCP</h1>
+      <h1>🔍 ClaimGuard MCP</h1>
       <p>
-        <strong>The VIP x402 Flash Loan Profit Printer.</strong>
+        <strong>AI-powered claim verification &amp; deep research, paid per call.</strong>
         <br />
-        AI agents pay USDC on Base to detect, simulate, generate calldata, and
-        execute risk-free arbitrage — while every call prints USDC for you.
+        AI agents pay USDC on Base to verify claims, fact-check articles, score
+        confidence, and conduct deep research — every call pays you directly.
       </p>
 
       <h2>MCP Endpoint</h2>
@@ -50,13 +50,13 @@ export default function Home() {
         </thead>
         <tbody>
           {[
-            ["get_market_data", "$0.01"],
-            ["scan_yield_opportunities", "$0.03"],
-            ["enrich_web_data", "$0.05"],
-            ["🔥 detect_flash_arb_opportunities", "$0.10"],
-            ["🔥 simulate_flash_trade", "$0.15"],
-            ["🔥 generate_flash_loan_calldata", "$0.25"],
-            ["🔥 execute_flash_loan_bundle", "$0.50"],
+            ["summarize_topic", "$0.01"],
+            ["get_confidence_score", "$0.03"],
+            ["verify_claim", "$0.05"],
+            ["🔍 check_sources", "$0.10"],
+            ["🔍 research_entities", "$0.15"],
+            ["🔍 fact_check_url", "$0.20"],
+            ["🔍 deep_research", "$0.25"],
           ].map(([tool, price]) => (
             <tr key={tool}>
               <td style={{ padding: "4px 0" }}>{tool}</td>
@@ -93,7 +93,7 @@ export default function Home() {
       >{`// Claude / MCP config
 {
   "mcpServers": {
-    "flashvault": {
+    "claimguard": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/client-stdio"],
       "env": {

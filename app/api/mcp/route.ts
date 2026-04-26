@@ -1,23 +1,15 @@
 /**
- * FlashVault MCP — x402-powered Flash Loan Profit Printer
+ * ClaimGuard MCP — x402-powered AI Claim Verification & Deep Research
  *
- * 3 basic tools ($0.01–$0.05):  market data, yield scanner, web enrichment
- * 4 premium VIP tools ($0.10–$0.50): arb detection, calldata gen, simulation, execution
+ * 3 basic tools ($0.01–$0.05):  topic summary, confidence scoring, claim verification
+ * 4 premium tools ($0.10–$0.25): source checking, entity research, URL fact-check, deep research
  *
  * Every call pays USDC on Base directly to RECIPIENT_ADDRESS.
+ * LLM reasoning powered by OpenAI (set OPENAI_API_KEY).
  */
 
 import { createPaidMcpHandler } from "x402-mcp";
 import { z } from "zod";
-import {
-  createPublicClient,
-  encodeFunctionData,
-  http,
-  parseUnits,
-  formatUnits,
-  isHex,
-} from "viem";
-import { base, baseSepolia } from "viem/chains";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -26,46 +18,7 @@ const RECIPIENT = (process.env.RECIPIENT_ADDRESS ??
 const NETWORK = (process.env.NETWORK ?? "base") as "base" | "base-sepolia";
 const FACILITATOR_URL =
   process.env.FACILITATOR_URL ?? "https://x402.org/facilitator";
-const BASE_RPC =
-  process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
-const PROFIT_SHARE_BPS = Math.min(
-  1000,
-  Math.max(0, Number(process.env.PROFIT_SHARE_BPS ?? "500"))
-);
-
-// Aave V3 Pool addresses on Base
-const AAVE_V3_POOL: Record<string, `0x${string}`> = {
-  base: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
-  "base-sepolia": "0x07eA79F68B2B3df564D0A34F8e19791234D9b94b",
-};
-
-// USDC contract address on Base mainnet
-const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-
-// Aave V3 flashLoan ABI (minimal — only what we need)
-const AAVE_FLASH_LOAN_ABI = [
-  {
-    name: "flashLoan",
-    type: "function",
-    inputs: [
-      { name: "receiverAddress", type: "address" },
-      { name: "assets", type: "address[]" },
-      { name: "amounts", type: "uint256[]" },
-      { name: "interestRateModes", type: "uint256[]" },
-      { name: "onBehalfOf", type: "address" },
-      { name: "params", type: "bytes" },
-      { name: "referralCode", type: "uint16" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-] as const;
-
-// Public viem client for on-chain reads
-const publicClient = createPublicClient({
-  chain: NETWORK === "base" ? base : baseSepolia,
-  transport: http(BASE_RPC),
-});
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,295 +44,260 @@ function validatePublicUrl(raw: string): URL {
   return url;
 }
 
-// ── Tool implementations ──────────────────────────────────────────────────────
-
-/** 1. Basic — real-time multi-chain market data via CoinGecko */
-async function fetchMarketData(
-  tokens: string[],
-  vs_currencies: string[]
-): Promise<unknown> {
-  const ids = encodeURIComponent(tokens.join(","));
-  const curr = encodeURIComponent(vs_currencies.join(","));
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (process.env.COINGECKO_API_KEY) {
-    headers["x-cg-demo-api-key"] = process.env.COINGECKO_API_KEY;
-  }
-  const res = await fetch(
-    `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=${curr}&include_24hr_change=true&include_market_cap=true`,
-    { headers }
-  );
-  if (!res.ok) throw new Error(`CoinGecko ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-/** 2. Basic — DeFi yield scanner via DeFiLlama */
-async function fetchYieldOpportunities(
-  minTvl: number,
-  limit: number,
-  chain?: string
-): Promise<unknown[]> {
-  const res = await fetch("https://yields.llama.fi/pools", {
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) throw new Error(`DeFiLlama ${res.status}: ${await res.text()}`);
-  const { data } = (await res.json()) as { data: Record<string, unknown>[] };
-  return data
-    .filter(
-      (p) =>
-        (p.tvlUsd as number) >= minTvl &&
-        (p.apy as number) > 0 &&
-        (!chain || (p.chain as string).toLowerCase() === chain.toLowerCase())
-    )
-    .sort((a, b) => (b.apy as number) - (a.apy as number))
-    .slice(0, limit)
-    .map((p) => ({
-      pool: p.pool,
-      project: p.project,
-      chain: p.chain,
-      symbol: p.symbol,
-      tvlUsd: p.tvlUsd,
-      apy: p.apy,
-      apyBase: p.apyBase,
-      apyReward: p.apyReward,
-    }));
-}
-
-/** 3. Basic — fetch and parse any public URL */
-async function enrichWebData(
-  rawUrl: string,
-  maxLength: number
-): Promise<unknown> {
+/** Fetch a public URL and return cleaned text (max maxLength chars). */
+async function fetchUrlText(rawUrl: string, maxLength = 4_000): Promise<string> {
   const url = validatePublicUrl(rawUrl);
   const res = await fetch(url.toString(), {
-    headers: {
-      "User-Agent": "FlashVaultMCP/1.0 (https://flashvault.vercel.app)",
-    },
+    headers: { "User-Agent": "ClaimGuardMCP/1.0 (https://claimguard.vercel.app)" },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url.hostname}`);
   const contentType = res.headers.get("content-type") ?? "";
   const text = await res.text();
   if (contentType.includes("application/json")) {
-    return { contentType, data: JSON.parse(text) };
+    return JSON.stringify(JSON.parse(text)).slice(0, maxLength);
   }
-  // Strip HTML: use a single generic pattern to avoid incomplete sanitization.
-  // The output is returned as JSON text to AI agents, not rendered in a browser.
-  const clean = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  return { contentType, data: clean.slice(0, maxLength) };
+  // Strip HTML tags — output is returned as JSON text to AI agents, not rendered in a browser
+  return text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
 
-/** 4. Premium — detect cross-DEX arbitrage opportunities on Base / Solana */
-async function detectArbOpportunities(chains: string[]): Promise<unknown[]> {
-  // Fetch pool data from DeFiLlama and price data from CoinGecko concurrently
-  const [poolsRes, priceData] = await Promise.all([
-    fetch("https://yields.llama.fi/pools", { headers: { Accept: "application/json" } }),
-    fetchMarketData(["ethereum", "usd-coin", "wrapped-bitcoin"], ["usd"]) as Promise<
-      Record<string, { usd: number }>
-    >,
-  ]);
-  if (!poolsRes.ok) throw new Error("DeFiLlama unavailable");
-  const { data: pools } = (await poolsRes.json()) as {
-    data: Record<string, unknown>[];
-  };
-
-  // Group pools by (chain, symbol) to find same-pair pools across multiple DEXes
-  const byPair = new Map<string, Record<string, unknown>[]>();
-  for (const p of pools) {
-    const chain = (p.chain as string).toLowerCase();
-    if (!chains.some((c) => chain.includes(c.toLowerCase()))) continue;
-    const key = `${chain}:${p.symbol}`;
-    const bucket = byPair.get(key) ?? [];
-    bucket.push(p);
-    byPair.set(key, bucket);
-  }
-
-  const opportunities: unknown[] = [];
-  for (const [key, bucket] of byPair) {
-    if (bucket.length < 2) continue;
-    const sorted = bucket.sort((a, b) => (b.apy as number) - (a.apy as number));
-    const highApy = sorted[0];
-    const lowApy = sorted[sorted.length - 1];
-    const spreadBps = Math.round(
-      (((highApy.apy as number) - (lowApy.apy as number)) / ((lowApy.apy as number) + 0.001)) *
-        10000
+/** Call OpenAI Chat Completions and return the assistant message as a string. */
+async function llmCall(
+  systemPrompt: string,
+  userPrompt: string,
+  jsonMode = false,
+  maxTokens = 2_000
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is not set. Add it to your Vercel environment variables to enable AI reasoning."
     );
-    if (spreadBps < 50) continue; // Skip tiny spreads
-
-    const flashLoanUSD = 100_000;
-    const grossProfit = flashLoanUSD * ((spreadBps / 10000) * 0.01); // conservative 1% of spread
-    const gasCostUSD = 0.5; // ~$0.50 Base gas
-    const netProfit = grossProfit - gasCostUSD;
-    if (netProfit <= 0) continue;
-
-    opportunities.push({
-      pair: key,
-      buyFrom: { dex: lowApy.project, apy: lowApy.apy },
-      sellTo: { dex: highApy.project, apy: highApy.apy },
-      spreadBps,
-      flashLoanAmountUSD: flashLoanUSD,
-      estimatedNetProfitUSD: parseFloat(netProfit.toFixed(4)),
-      ownerProfitShareUSD: parseFloat(
-        (netProfit * (PROFIT_SHARE_BPS / 10000)).toFixed(4)
-      ),
-      ownerProfitShareBps: PROFIT_SHARE_BPS,
-      confidence: spreadBps > 500 ? "HIGH" : "MEDIUM",
-      chains,
-      scannedAt: new Date().toISOString(),
-    });
   }
 
-  return opportunities
-    .sort(
-      (a, b) =>
-        (b as { estimatedNetProfitUSD: number }).estimatedNetProfitUSD -
-        (a as { estimatedNetProfitUSD: number }).estimatedNetProfitUSD
-    )
-    .slice(0, 10);
-}
-
-/** 5. Premium — generate Aave V3 flash loan calldata */
-function generateFlashCalldata(params: {
-  receiverAddress: string;
-  asset: string;
-  amount: string;
-  decimals: number;
-  arbitrageCalldata: string;
-  onBehalfOf?: string;
-}): unknown {
-  const { receiverAddress, asset, amount, decimals, arbitrageCalldata, onBehalfOf } = params;
-  if (!isHex(receiverAddress)) throw new Error("receiverAddress must be a hex address");
-  if (!isHex(asset)) throw new Error("asset must be a hex address");
-  if (!isHex(arbitrageCalldata)) throw new Error("arbitrageCalldata must be hex");
-
-  const amountWei = parseUnits(amount, decimals);
-  const onBehalf = ((onBehalfOf ?? receiverAddress) as `0x${string}`);
-
-  const calldata = encodeFunctionData({
-    abi: AAVE_FLASH_LOAN_ABI,
-    functionName: "flashLoan",
-    args: [
-      receiverAddress as `0x${string}`,
-      [asset as `0x${string}`],
-      [amountWei],
-      [0n], // 0 = no debt (repaid in same tx)
-      onBehalf,
-      arbitrageCalldata as `0x${string}`,
-      0,
+  const body: Record<string, unknown> = {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
+    temperature: 0.3,
+    max_tokens: maxTokens,
+  };
+  if (jsonMode) {
+    body.response_format = { type: "json_object" };
+  }
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 
-  return {
-    to: AAVE_V3_POOL[NETWORK],
-    calldata,
-    value: "0x0",
-    estimatedGas: "350000",
-    network: NETWORK,
-    chainId: NETWORK === "base" ? 8453 : 84532,
-    asset,
-    amountWei: amountWei.toString(),
-    usdcAddress: USDC_BASE,
-    description: `Aave V3 flash loan of ${amount} tokens on ${NETWORK}`,
-    warning: "Always simulate before submitting. Losses are possible.",
-  };
-}
-
-/** 6. Premium — simulate flash trade via eth_call dry run */
-async function simulateFlashTrade(params: {
-  to: string;
-  calldata: string;
-  from?: string;
-}): Promise<unknown> {
-  const { to, calldata, from } = params;
-  if (!isHex(to)) throw new Error("to must be a hex address");
-  if (!isHex(calldata)) throw new Error("calldata must be hex");
-
-  const account = ((from ?? "0x0000000000000000000000000000000000000001") as `0x${string}`);
-
-  try {
-    const [callResult, gasPrice] = await Promise.all([
-      publicClient.call({ to: to as `0x${string}`, data: calldata as `0x${string}`, account }),
-      publicClient.getGasPrice(),
-    ]);
-
-    let gasEstimate = 350_000n;
-    try {
-      gasEstimate = await publicClient.estimateGas({
-        to: to as `0x${string}`,
-        data: calldata as `0x${string}`,
-        account,
-      });
-    } catch {
-      // Estimation may fail for complex flash loans — use conservative default
-    }
-
-    const gasCostWei = gasEstimate * gasPrice;
-    const gasCostEth = formatUnits(gasCostWei, 18);
-
-    // Fetch live ETH price for accurate USD gas estimate; fall back to a safe default
-    let ethPriceUsd = 3_000;
-    try {
-      const prices = (await fetchMarketData(["ethereum"], ["usd"])) as Record<
-        string,
-        { usd: number }
-      >;
-      if (prices.ethereum?.usd) ethPriceUsd = prices.ethereum.usd;
-    } catch {
-      // Non-fatal — continue with fallback price
-    }
-    return {
-      success: true,
-      returnData: callResult.data ?? "0x",
-      gasEstimate: gasEstimate.toString(),
-      gasPriceWei: gasPrice.toString(),
-      estimatedGasCostETH: gasCostEth,
-      estimatedGasCostUSD: (parseFloat(gasCostEth) * ethPriceUsd).toFixed(4),
-      network: NETWORK,
-      simulatedAt: new Date().toISOString(),
-    };
-  } catch (err: unknown) {
-    const e = err as { message?: string; cause?: { reason?: string } };
-    return {
-      success: false,
-      error: e.message ?? "Simulation failed",
-      revertReason: e.cause?.reason ?? "Unknown — check your receiver contract",
-      network: NETWORK,
-      simulatedAt: new Date().toISOString(),
-    };
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenAI API error ${res.status}: ${errText}`);
   }
+
+  const data = (await res.json()) as {
+    choices: Array<{ message: { content: string } }>;
+  };
+  return data.choices[0]?.message?.content ?? "";
 }
 
-/** 7. Premium — package flash loan into a ready-to-submit execution bundle */
-function prepareExecutionBundle(params: {
-  to: string;
-  calldata: string;
-  sessionKey?: string;
-}): unknown {
-  if (!isHex(params.to)) throw new Error("to must be a hex address");
-  if (!isHex(params.calldata)) throw new Error("calldata must be hex");
+// ── Tool implementations ──────────────────────────────────────────────────────
 
-  return {
-    status: "BUNDLE_READY",
-    bundle: {
-      to: params.to,
-      data: params.calldata,
-      value: "0x0",
-      chainId: NETWORK === "base" ? 8453 : 84532,
-    },
-    sessionKeyProvided: Boolean(params.sessionKey),
-    submissionInstructions: {
-      step1: "Verify simulation result shows success: true",
-      step2: `Network: ${NETWORK} (Chain ID ${NETWORK === "base" ? 8453 : 84532})`,
-      step3: "Ensure ≥0.002 ETH for gas in your wallet",
-      step4: "Submit bundle.data to bundle.to via your wallet or EIP-4337 bundler",
-      step5: "Monitor at https://basescan.org",
-    },
-    profitShare: {
-      ownerAddress: RECIPIENT,
-      basisPoints: PROFIT_SHARE_BPS,
-      description: `${PROFIT_SHARE_BPS / 100}% of net profit routes to ${RECIPIENT}`,
-    },
-    preparedAt: new Date().toISOString(),
-    disclaimer: "You bear full execution risk. Simulate before submitting.",
-  };
+/** 1. Basic — quick factual topic summary */
+async function summarizeTopic(topic: string, maxWords: number): Promise<unknown> {
+  const systemPrompt =
+    "You are a factual research assistant. Provide accurate, concise, neutral summaries " +
+    "with verified facts only. Be honest about uncertainty. Always respond with valid JSON.";
+  const userPrompt =
+    `Summarize the following topic in at most ${maxWords} words. ` +
+    `Return JSON with keys: topic (string), summary (string), keyFacts (string[]), ` +
+    `confidence (number 0-100), caveats (string or null).\n\nTopic: ${topic}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true);
+  return JSON.parse(raw);
+}
+
+/** 2. Basic — calibrated confidence scoring for a claim */
+async function scoreConfidence(claim: string, context?: string): Promise<unknown> {
+  const systemPrompt =
+    "You are a critical reasoning assistant. Assess the factual accuracy of claims based on " +
+    "scientific consensus, historical record, and available evidence. " +
+    "Be calibrated and honest about uncertainty. Always respond with valid JSON.";
+  const contextBlock = context ? `\n\nAdditional context: ${context}` : "";
+  const userPrompt =
+    `Evaluate the following claim and return JSON with keys: ` +
+    `claim (string), confidence (number 0-100), verdict (one of: "likely_true", "likely_false", ` +
+    `"unverified", "disputed", "context_dependent"), reasoning (string), ` +
+    `supportingPoints (string[]), contradictingPoints (string[]), caveats (string or null).` +
+    `\n\nClaim: ${claim}${contextBlock}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true);
+  return JSON.parse(raw);
+}
+
+/** 3. Basic — structured claim verification with evidence */
+async function verifyClaim(claim: string, searchContext?: string): Promise<unknown> {
+  const systemPrompt =
+    "You are a professional fact-checker. Analyze claims rigorously for accuracy, " +
+    "identify supporting and contradicting evidence, cite specific sources where possible, " +
+    "and assess overall confidence. Always respond with valid JSON.";
+  const contextBlock = searchContext ? `\n\nContext / background: ${searchContext}` : "";
+  const userPrompt =
+    `Verify the following claim. Return JSON with keys: ` +
+    `claim (string), verdict (one of: "true", "false", "partially_true", "unverified", "disputed"), ` +
+    `confidence (number 0-100), summary (string), reasoning (string), ` +
+    `supportingEvidence (string[]), contradictingEvidence (string[]), ` +
+    `suggestedSources (string[]), recommendation (string), verifiedAt (ISO timestamp).` +
+    `\n\nClaim: ${claim}${contextBlock}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true);
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.verifiedAt = new Date().toISOString();
+  return parsed;
+}
+
+/** 4. Premium — fetch URLs and analyze whether they support/contradict a claim */
+async function checkSources(claim: string, urls: string[]): Promise<unknown> {
+  // Fetch all URLs concurrently
+  const fetched = await Promise.all(
+    urls.map(async (u) => {
+      try {
+        const text = await fetchUrlText(u, 3_000);
+        return { url: u, status: "ok", content: text };
+      } catch (err) {
+        return { url: u, status: "error", content: String((err as Error).message) };
+      }
+    })
+  );
+
+  const sourcesBlock = fetched
+    .map((f, i) => `SOURCE ${i + 1} (${f.url}):\n${f.content}`)
+    .join("\n\n---\n\n");
+
+  const systemPrompt =
+    "You are a source analysis expert. Evaluate whether provided source content supports " +
+    "or contradicts a given claim. Assess source quality and relevance. Always respond with valid JSON.";
+  const userPrompt =
+    `Analyze these sources in relation to the claim below. Return JSON with keys: ` +
+    `claim (string), sources (array of objects with url, stance (one of: "supports", "contradicts", ` +
+    `"neutral", "irrelevant", "unavailable"), relevanceScore (number 0-100), summary (string)), ` +
+    `overallSupport (one of: "strong_support", "weak_support", "mixed", "weak_contradiction", ` +
+    `"strong_contradiction", "insufficient_data"), confidence (number 0-100), ` +
+    `analysis (string), checkedAt (ISO timestamp).` +
+    `\n\nClaim: ${claim}\n\n${sourcesBlock}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true);
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.checkedAt = new Date().toISOString();
+  return parsed;
+}
+
+/** 5. Premium — extract and research named entities in text */
+async function researchEntities(
+  text: string,
+  entityTypes: string[]
+): Promise<unknown> {
+  const systemPrompt =
+    "You are an entity research specialist. Extract named entities from text and provide " +
+    "accurate, verified information about each one. Always respond with valid JSON.";
+  const typesBlock =
+    entityTypes.length > 0
+      ? `Focus on these entity types: ${entityTypes.join(", ")}.`
+      : "Extract all entity types (people, organizations, places, products, events).";
+  const userPrompt =
+    `${typesBlock} Return JSON with keys: ` +
+    `entities (array of objects with name, type, description, credibilityNotes (string), ` +
+    `keyFacts (string[]), verificationStatus (one of: "verified", "likely_accurate", ` +
+    `"uncertain", "disputed")), summary (string), researchedAt (ISO timestamp).` +
+    `\n\nText: ${text}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true);
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.researchedAt = new Date().toISOString();
+  return parsed;
+}
+
+/** 6. Premium — fetch an article URL and fact-check the claims within it */
+async function factCheckUrl(rawUrl: string, focusClaims?: string[]): Promise<unknown> {
+  const articleText = await fetchUrlText(rawUrl, 5_000);
+
+  const focusBlock =
+    focusClaims && focusClaims.length > 0
+      ? `\n\nPay special attention to these claims: ${focusClaims.join("; ")}`
+      : "";
+
+  const systemPrompt =
+    "You are a fact-checking journalist. Analyze article content, identify factual claims, " +
+    "verify them against established knowledge, and assess overall source credibility. " +
+    "Always respond with valid JSON.";
+  const userPrompt =
+    `Fact-check the article content below. Return JSON with keys: ` +
+    `url (string), articleSummary (string), ` +
+    `claimsFound (array of strings with the main factual claims identified), ` +
+    `factCheckResults (array of objects with claim, verdict (one of: "true", "false", ` +
+    `"partially_true", "unverified", "misleading"), confidence (number 0-100), reasoning (string)), ` +
+    `overallCredibility (one of: "high", "medium", "low", "very_low"), ` +
+    `credibilityScore (number 0-100), summary (string), checkedAt (ISO timestamp).` +
+    `${focusBlock}\n\nArticle content:\n${articleText}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true, 3_000);
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.url = rawUrl;
+  parsed.checkedAt = new Date().toISOString();
+  return parsed;
+}
+
+/** 7. Premium — multi-step deep research on a topic, with optional source URLs */
+async function deepResearch(
+  query: string,
+  depth: "quick" | "thorough",
+  searchUrls?: string[]
+): Promise<unknown> {
+  // Optionally fetch provided source URLs for grounding
+  let sourceContext = "";
+  if (searchUrls && searchUrls.length > 0) {
+    const fetched = await Promise.all(
+      searchUrls.map(async (u) => {
+        try {
+          const text = await fetchUrlText(u, 3_000);
+          return `SOURCE (${u}):\n${text}`;
+        } catch {
+          return `SOURCE (${u}): [fetch failed]`;
+        }
+      })
+    );
+    sourceContext = `\n\nProvided sources:\n${fetched.join("\n\n---\n\n")}`;
+  }
+
+  const depthInstruction =
+    depth === "thorough"
+      ? "Conduct thorough, multi-angle research. Explore historical context, current evidence, " +
+        "counterarguments, expert consensus, and open questions."
+      : "Conduct a focused, efficient research pass. Cover the main facts and key uncertainties.";
+
+  const systemPrompt =
+    "You are a thorough research analyst. Conduct comprehensive, evidence-based research. " +
+    "Synthesize information from multiple angles, distinguish facts from speculation, " +
+    "and clearly identify areas of uncertainty. Always respond with valid JSON.";
+  const userPrompt =
+    `${depthInstruction} Return JSON with keys: ` +
+    `query (string), researchPlan (string[]), findings (string), ` +
+    `keyTakeaways (string[]), openQuestions (string[]), ` +
+    `citations (array of objects with source (string), claim (string)), ` +
+    `confidenceLevel (one of: "high", "medium", "low"), ` +
+    `confidenceScore (number 0-100), limitations (string), researchedAt (ISO timestamp).` +
+    `\n\nResearch query: ${query}${sourceContext}`;
+
+  const raw = await llmCall(systemPrompt, userPrompt, true, 4_000);
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  parsed.researchedAt = new Date().toISOString();
+  return parsed;
 }
 
 // ── MCP Server ────────────────────────────────────────────────────────────────
@@ -389,204 +307,177 @@ const handler = createPaidMcpHandler(
     // ── BASIC TOOLS ($0.01 – $0.05 USDC) ─────────────────────────────────────
 
     server.paidTool(
-      "get_market_data",
-      "Real-time token prices, 24h change, and market cap across chains via CoinGecko.",
+      "summarize_topic",
+      "Quick AI-powered factual summary of any topic — returns key facts, confidence score, and caveats.",
       { price: 0.01 },
       {
-        tokens: z
-          .array(z.string().min(1).max(100))
-          .min(1)
-          .max(20)
-          .describe("CoinGecko token IDs, e.g. ['ethereum','usd-coin']"),
-        vs_currencies: z
-          .array(z.string().min(1).max(10))
-          .min(1)
-          .max(5)
+        topic: z
+          .string()
+          .min(3)
+          .max(500)
+          .describe("Topic or question to summarize, e.g. 'mRNA vaccine mechanism'"),
+        maxWords: z
+          .number()
+          .int()
+          .min(50)
+          .max(500)
           .optional()
-          .describe("Quote currencies (default: ['usd'])"),
+          .describe("Maximum words in the summary (default: 150)"),
       },
       {},
-      async ({ tokens, vs_currencies }) => {
-        const data = await fetchMarketData(tokens, vs_currencies ?? ["usd"]);
-        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      async ({ topic, maxWords }) => {
+        const result = await summarizeTopic(topic, maxWords ?? 150);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
     );
 
     server.paidTool(
-      "scan_yield_opportunities",
-      "Top DeFi yield pools by APY across all chains or a specific chain, sourced from DeFiLlama.",
+      "get_confidence_score",
+      "Calibrated 0–100 confidence score for any claim — includes verdict, supporting points, and contradicting points.",
       { price: 0.03 },
       {
-        minTvl: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Minimum pool TVL in USD (default 1,000,000)"),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(50)
-          .optional()
-          .describe("Max results to return (default 10)"),
-        chain: z
+        claim: z
           .string()
+          .min(5)
+          .max(1_000)
+          .describe("The claim to evaluate, e.g. 'The moon landing was faked'"),
+        context: z
+          .string()
+          .max(2_000)
           .optional()
-          .describe("Filter by chain name, e.g. 'Base' or 'Ethereum'"),
+          .describe("Optional additional context or background for the claim"),
       },
       {},
-      async ({ minTvl, limit, chain }) => {
-        const pools = await fetchYieldOpportunities(
-          minTvl ?? 1_000_000,
-          limit ?? 10,
-          chain
-        );
-        return { content: [{ type: "text", text: JSON.stringify(pools, null, 2) }] };
+      async ({ claim, context }) => {
+        const result = await scoreConfidence(claim, context);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
     );
 
     server.paidTool(
-      "enrich_web_data",
-      "Fetches any public URL and returns clean text or parsed JSON — ideal for price pages, docs, or feeds.",
+      "verify_claim",
+      "Structured claim verification — returns a true/false/unverified verdict, confidence score, evidence summary, and recommended sources.",
       { price: 0.05 },
       {
-        url: z.string().url().describe("Public URL to fetch"),
-        maxLength: z
-          .number()
-          .int()
-          .min(100)
-          .max(10_000)
+        claim: z
+          .string()
+          .min(5)
+          .max(1_000)
+          .describe("The claim to verify"),
+        searchContext: z
+          .string()
+          .max(2_000)
           .optional()
-          .describe("Max characters for text responses (default 2000)"),
+          .describe("Optional context, background, or known facts about the claim"),
       },
       {},
-      async ({ url, maxLength }) => {
-        const data = await enrichWebData(url, maxLength ?? 2_000);
-        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      async ({ claim, searchContext }) => {
+        const result = await verifyClaim(claim, searchContext);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
     );
 
-    // ── PREMIUM VIP TOOLS ($0.10 – $0.50 USDC) ───────────────────────────────
+    // ── PREMIUM TOOLS ($0.10 – $0.25 USDC) ───────────────────────────────────
 
     server.paidTool(
-      "detect_flash_arb_opportunities",
-      "🔥 VIP: Scans Base and Solana DEXes via DeFiLlama for live arbitrage opportunities with net-profit and owner profit-share estimates.",
+      "check_sources",
+      "🔍 Premium: Fetches up to 3 URLs and uses AI to determine whether each source supports or contradicts your claim — with relevance scores and an overall support verdict.",
       { price: 0.1 },
       {
-        chains: z
-          .array(z.enum(["base", "solana", "ethereum", "arbitrum"]))
+        claim: z
+          .string()
+          .min(5)
+          .max(1_000)
+          .describe("The claim to check sources against"),
+        urls: z
+          .array(z.string().url())
           .min(1)
-          .max(4)
-          .optional()
-          .describe("Chains to scan (default: ['base'])"),
+          .max(3)
+          .describe("Public URLs to analyze as evidence sources"),
       },
       {},
-      async ({ chains }) => {
-        const opps = await detectArbOpportunities(chains ?? ["base"]);
-        return { content: [{ type: "text", text: JSON.stringify(opps, null, 2) }] };
-      }
-    );
-
-    server.paidTool(
-      "generate_flash_loan_calldata",
-      "🔥 VIP: Encodes a ready-to-sign Aave V3 flash loan transaction with your arbitrage logic embedded. Returns calldata for simulate_flash_trade or direct submission.",
-      { price: 0.25 },
-      {
-        receiverAddress: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
-          .describe("Your flash loan receiver contract address"),
-        asset: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
-          .describe(`Token to borrow (USDC on Base: ${USDC_BASE})`),
-        amount: z
-          .string()
-          .regex(/^\d+(\.\d+)?$/)
-          .describe("Amount to borrow as a decimal string, e.g. '100000'"),
-        decimals: z
-          .number()
-          .int()
-          .min(0)
-          .max(18)
-          .describe("Token decimals (6 for USDC, 18 for ETH/WETH)"),
-        arbitrageCalldata: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]*$/)
-          .describe("Hex-encoded calldata your receiver executes during the flash loan"),
-        onBehalfOf: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
-          .optional()
-          .describe("Address that receives flash loan debt (defaults to receiverAddress)"),
-      },
-      {},
-      async ({ receiverAddress, asset, amount, decimals, arbitrageCalldata, onBehalfOf }) => {
-        const result = generateFlashCalldata({
-          receiverAddress,
-          asset,
-          amount,
-          decimals,
-          arbitrageCalldata,
-          onBehalfOf,
-        });
+      async ({ claim, urls }) => {
+        const result = await checkSources(claim, urls);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
     );
 
     server.paidTool(
-      "simulate_flash_trade",
-      "🔥 VIP: Dry-runs your flash trade against live on-chain state via eth_call. Returns success/fail, exact gas cost, and revert reason — before you spend a cent.",
+      "research_entities",
+      "🔍 Premium: Extracts named entities (people, organizations, places, events) from text and returns verified descriptions, key facts, and credibility notes for each.",
       { price: 0.15 },
       {
-        to: z
+        text: z
           .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
-          .describe("Contract address to call (e.g. Aave V3 Pool)"),
-        calldata: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]*$/)
-          .describe("Encoded calldata from generate_flash_loan_calldata"),
-        from: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .min(10)
+          .max(3_000)
+          .describe("Text containing entities to research"),
+        entityTypes: z
+          .array(
+            z.enum(["person", "organization", "place", "product", "event", "concept"])
+          )
+          .max(6)
           .optional()
-          .describe("Sender address for the simulation (optional)"),
+          .describe("Entity types to focus on (default: all types)"),
       },
       {},
-      async ({ to, calldata, from }) => {
-        const result = await simulateFlashTrade({ to, calldata, from });
+      async ({ text, entityTypes }) => {
+        const result = await researchEntities(text, entityTypes ?? []);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
     );
 
     server.paidTool(
-      "execute_flash_loan_bundle",
-      "🔥 VIP: Packages your flash loan into a ready-to-submit EVM bundle with profit-share routing to the owner wallet. Compatible with smart wallets, EOAs, and EIP-4337 bundlers.",
-      { price: 0.5 },
+      "fact_check_url",
+      "🔍 Premium: Fetches an article or web page and AI fact-checks the claims within it — returns per-claim verdicts, confidence scores, and an overall credibility rating.",
+      { price: 0.2 },
       {
-        to: z
+        url: z
           .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
-          .describe("Target contract address (Aave V3 Pool or your router)"),
-        calldata: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]*$/)
-          .describe("Encoded calldata from generate_flash_loan_calldata"),
-        sessionKey: z
-          .string()
+          .url()
+          .describe("Public URL of the article or page to fact-check"),
+        focusClaims: z
+          .array(z.string().min(3).max(300))
+          .max(5)
           .optional()
-          .describe("Optional session key for automated smart-wallet execution"),
+          .describe("Specific claims to prioritize during fact-checking (optional)"),
       },
       {},
-      async ({ to, calldata, sessionKey }) => {
-        const result = prepareExecutionBundle({ to, calldata, sessionKey });
+      async ({ url, focusClaims }) => {
+        const result = await factCheckUrl(url, focusClaims);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+    );
+
+    server.paidTool(
+      "deep_research",
+      "🔍 Premium: Multi-step AI deep research on any topic or question — returns a structured research plan, findings, key takeaways, citations, and confidence level. Optionally grounds research in provided source URLs.",
+      { price: 0.25 },
+      {
+        query: z
+          .string()
+          .min(5)
+          .max(1_000)
+          .describe("Research question or topic to investigate"),
+        depth: z
+          .enum(["quick", "thorough"])
+          .optional()
+          .describe("Research depth: 'quick' (focused) or 'thorough' (multi-angle, default: 'thorough')"),
+        searchUrls: z
+          .array(z.string().url())
+          .max(3)
+          .optional()
+          .describe("Optional public URLs to use as primary sources for grounding"),
+      },
+      {},
+      async ({ query, depth, searchUrls }) => {
+        const result = await deepResearch(query, depth ?? "thorough", searchUrls);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
     );
   },
   {
-    serverInfo: { name: "FlashVault MCP", version: "1.0.0" },
+    serverInfo: { name: "ClaimGuard MCP", version: "1.0.0" },
   },
   {
     recipient: RECIPIENT,

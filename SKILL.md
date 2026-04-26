@@ -1,13 +1,13 @@
-# FlashVault MCP — SKILL
+# ClaimGuard MCP — SKILL
 
 ## Name
-FlashVault MCP
+ClaimGuard MCP
 
 ## Tagline
-The VIP x402 Flash Loan Profit Printer — agents pay you USDC to detect, simulate, generate calldata, and execute risk-free arbitrage.
+AI-powered claim verification & deep research — agents pay USDC per call to verify claims, fact-check articles, score confidence, and conduct multi-step research.
 
 ## Description
-FlashVault MCP is a pay-per-use AI tool server for DeFi automation. Every tool call costs USDC on Base, paid instantly via the x402 protocol. No API keys required for agents — connect, pay, profit.
+ClaimGuard MCP is a pay-per-use AI tool server for claim verification and research. Every tool call costs USDC on Base, paid instantly via the x402 protocol. No API keys required for agents — connect, pay, get verified answers.
 
 ## MCP Endpoint
 ```
@@ -29,23 +29,23 @@ Replace `your-project` with your actual Vercel project name after deployment.
 ### Basic Tier
 | Tool | Price | Description |
 |------|-------|-------------|
-| `get_market_data` | $0.01 USDC | Real-time token prices via CoinGecko |
-| `scan_yield_opportunities` | $0.03 USDC | Top DeFi yield pools from DeFiLlama |
-| `enrich_web_data` | $0.05 USDC | Fetch and parse any public URL |
+| `summarize_topic` | $0.01 USDC | Quick factual summary with key facts and confidence score |
+| `get_confidence_score` | $0.03 USDC | Calibrated 0–100 confidence score with verdict and evidence points |
+| `verify_claim` | $0.05 USDC | Structured true/false/unverified verdict with evidence summary |
 
-### Premium VIP Tier 🔥
+### Premium Tier 🔍
 | Tool | Price | Description |
 |------|-------|-------------|
-| `detect_flash_arb_opportunities` | $0.10 USDC | Multi-chain DEX arb scanner with profit estimates |
-| `simulate_flash_trade` | $0.15 USDC | eth_call dry-run with exact gas/profit numbers |
-| `generate_flash_loan_calldata` | $0.25 USDC | Ready-to-sign Aave V3 flash loan calldata |
-| `execute_flash_loan_bundle` | $0.50 USDC | EVM execution bundle with profit-share routing |
+| `check_sources` | $0.10 USDC | Fetches URLs and determines if each supports or contradicts a claim |
+| `research_entities` | $0.15 USDC | Extracts and researches named entities with verified facts |
+| `fact_check_url` | $0.20 USDC | Fetches an article and fact-checks claims within it |
+| `deep_research` | $0.25 USDC | Multi-step structured research with citations and confidence level |
 
 ## Example Agent Config (Claude / MCP)
 ```json
 {
   "mcpServers": {
-    "flashvault": {
+    "claimguard": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/client-stdio"],
       "env": {
@@ -57,10 +57,7 @@ Replace `your-project` with your actual Vercel project name after deployment.
 ```
 
 ## Categories
-defi, arbitrage, flash-loans, market-data, blockchain, base, solana
-
-## Supported Chains
-Base, Ethereum, Solana, Arbitrum
+fact-checking, research, ai, verification, misinformation, deep-research, claim-verification
 
 ## Source
 https://github.com/Disseveru/friendly-octo-rotary-phone

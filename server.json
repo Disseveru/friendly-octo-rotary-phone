@@ -1,7 +1,7 @@
 {
-  "name": "FlashVault MCP",
-  "tagline": "The VIP x402 Flash Loan Profit Printer — agents pay you USDC to detect, simulate, generate calldata, and execute risk-free arbitrage.",
-  "description": "FlashVault MCP is an x402-monetized Model Context Protocol server that gives AI agents real-time DeFi market intelligence and flash loan tooling on Base and Solana. Every tool call costs USDC, paid instantly on-chain to the server owner. No subscriptions, no API keys for agents — just pay-per-use USDC micropayments.",
+  "name": "ClaimGuard MCP",
+  "tagline": "AI-powered claim verification & deep research — agents pay USDC per call to verify claims, fact-check articles, score confidence, and conduct multi-step research.",
+  "description": "ClaimGuard MCP is an x402-monetized Model Context Protocol server that gives AI agents on-demand claim verification, source checking, entity research, URL fact-checking, and deep research — all backed by LLM reasoning. Every tool call costs USDC, paid instantly on-chain to the server owner. No subscriptions, no API keys for agents — pure pay-per-use micropayments.",
   "version": "1.0.0",
   "url": "https://your-project.vercel.app/api/mcp",
   "transport": ["streamable-http"],
@@ -13,52 +13,51 @@
   },
   "tools": [
     {
-      "name": "get_market_data",
-      "description": "Real-time token prices, 24h change, and market cap via CoinGecko.",
+      "name": "summarize_topic",
+      "description": "Quick AI-powered factual summary of any topic — returns key facts, confidence score, and caveats.",
       "price_usdc": 0.01,
       "tier": "basic"
     },
     {
-      "name": "scan_yield_opportunities",
-      "description": "Top DeFi yield pools by APY sourced from DeFiLlama.",
+      "name": "get_confidence_score",
+      "description": "Calibrated 0–100 confidence score for any claim, with verdict, supporting points, and contradicting points.",
       "price_usdc": 0.03,
       "tier": "basic"
     },
     {
-      "name": "enrich_web_data",
-      "description": "Fetches and parses any public URL into clean text or JSON.",
+      "name": "verify_claim",
+      "description": "Structured claim verification — returns a true/false/unverified verdict, confidence score, and evidence summary.",
       "price_usdc": 0.05,
       "tier": "basic"
     },
     {
-      "name": "detect_flash_arb_opportunities",
-      "description": "Scans Base + Solana DEXes for live arbitrage opportunities with net-profit estimates.",
+      "name": "check_sources",
+      "description": "Fetches up to 3 URLs and uses AI to determine whether each supports or contradicts a claim, with relevance scores.",
       "price_usdc": 0.10,
       "tier": "premium"
     },
     {
-      "name": "simulate_flash_trade",
-      "description": "Dry-runs flash trade calldata on live chain state via eth_call.",
+      "name": "research_entities",
+      "description": "Extracts named entities (people, orgs, places, events) from text and returns verified descriptions and key facts.",
       "price_usdc": 0.15,
       "tier": "premium"
     },
     {
-      "name": "generate_flash_loan_calldata",
-      "description": "Encodes ready-to-sign Aave V3 flash loan calldata with arbitrage logic.",
-      "price_usdc": 0.25,
+      "name": "fact_check_url",
+      "description": "Fetches an article or web page and AI fact-checks the claims within it — per-claim verdicts and overall credibility rating.",
+      "price_usdc": 0.20,
       "tier": "premium"
     },
     {
-      "name": "execute_flash_loan_bundle",
-      "description": "Packages flash loan into a ready-to-submit EVM bundle with profit-share routing.",
-      "price_usdc": 0.50,
+      "name": "deep_research",
+      "description": "Multi-step AI deep research on any topic — structured plan, findings, key takeaways, citations, and confidence level.",
+      "price_usdc": 0.25,
       "tier": "premium"
     }
   ],
-  "categories": ["defi", "arbitrage", "flash-loans", "market-data", "blockchain"],
-  "chains": ["base", "solana", "ethereum"],
+  "categories": ["fact-checking", "research", "ai", "verification", "misinformation"],
   "author": {
-    "name": "FlashVault",
+    "name": "ClaimGuard",
     "url": "https://your-project.vercel.app"
   },
   "license": "MIT",

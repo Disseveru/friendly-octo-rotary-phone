@@ -16,6 +16,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  id-token: write
 
 jobs:
   # ── Job 0: Security audit on every PR ─────────────────────────────────────
@@ -228,7 +229,7 @@ jobs:
               only use `--force` if it does NOT downgrade a direct dependency in
               `package.json` (i.e., only update transitive deps).
             - For any remaining unfixable issues (e.g., postcss via next), add an
-              inline comment in `package.json` under a top-level `"auditNotes"` key
+              inline comment in `package.json` under a top-level `\"auditNotes\"` key
               explaining why the vulnerability is accepted (e.g., dev-only, no user
               input path, fix not yet released).
 
@@ -243,10 +244,7 @@ jobs:
             - Push: `git push origin HEAD`
             - Open a pull request using the `gh` CLI:
               ```bash
-              gh pr create \
-                --title "fix: autonomous npm security vulnerability fixes" \
-                --body "Automated security fixes applied by Claude Sonnet 4.6.\n\nSee npm audit report for details." \
-                --base main
+              gh pr create \\\n                --title "fix: autonomous npm security vulnerability fixes" \\\n                --body "Automated security fixes applied by Claude Sonnet 4.6.\\n\\nSee npm audit report for details." \\\n                --base main
               ```
 
             **Important constraints:**
